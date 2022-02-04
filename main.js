@@ -22,7 +22,6 @@ app.get('/', (request, response) => {
   });
 })
 
-
 app.get('/page/:pageId', (req, res) => {
   
   fs.readdir('./data', function(error, filelist){
@@ -38,7 +37,7 @@ app.get('/page/:pageId', (req, res) => {
         `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
         ` <a href="/create">create</a>
           <a href="/update/${sanitizedTitle}">update</a>
-          <form action="delete_process" method="post">
+          <form action="/delete_process" method="post">
             <input type="hidden" name="id" value="${sanitizedTitle}">
             <input type="submit" value="delete">
           </form>`
@@ -77,8 +76,7 @@ app.post('/create_process', (request, response) => {
           var title = post.title;
           var description = post.description;
           fs.writeFile(`data/${title}`, description, 'utf8', function(err){
-            response.writeHead(302, {Location: `/?id=${title}`});
-            response.end();
+            response.redirect(`/?id=${title}`);
           })
       });
 });
@@ -109,7 +107,39 @@ app.get('/update/:pageId', (req, res) => {
   });
 });
 
+app.post('/update_process', (request, response) => {
+  var body = '';
+  request.on('data', function(data){
+      body = body + data;
+  });
+  request.on('end', function(){
+      var post = qs.parse(body);
+      var id = post.id;
+      var title = post.title;
+      var description = post.description;
+      fs.rename(`data/${id}`, `data/${title}`, function(error){
+        fs.writeFile(`data/${title}`, description, 'utf8', function(err){
+          response.writeHead(302, {Location: `/?id=${title}`});
+          response.end();
+        })
+      });
+  });
+});
 
+app.post('/delete_process', (request, response) => {
+  var body = '';
+  request.on('data', function(data){
+      body = body + data;
+  });
+  request.on('end', function(){
+      var post = qs.parse(body);
+      var id = post.id;
+      var filteredId = path.parse(id).base;
+      fs.unlink(`data/${filteredId}`, function(error){
+        response.redirect('/');
+      })
+  });
+});
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
@@ -137,36 +167,9 @@ var app = http.createServer(function(request,response){
     } else if(pathname === '/update'){
      
     } else if(pathname === '/update_process'){
-      var body = '';
-      request.on('data', function(data){
-          body = body + data;
-      });
-      request.on('end', function(){
-          var post = qs.parse(body);
-          var id = post.id;
-          var title = post.title;
-          var description = post.description;
-          fs.rename(`data/${id}`, `data/${title}`, function(error){
-            fs.writeFile(`data/${title}`, description, 'utf8', function(err){
-              response.writeHead(302, {Location: `/?id=${title}`});
-              response.end();
-            })
-          });
-      });
+      
     } else if(pathname === '/delete_process'){
-      var body = '';
-      request.on('data', function(data){
-          body = body + data;
-      });
-      request.on('end', function(){
-          var post = qs.parse(body);
-          var id = post.id;
-          var filteredId = path.parse(id).base;
-          fs.unlink(`data/${filteredId}`, function(error){
-            response.writeHead(302, {Location: `/`});
-            response.end();
-          })
-      });
+     
     } else {
       response.writeHead(404);
       response.end('Not found');
