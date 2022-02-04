@@ -37,7 +37,7 @@ app.get('/page/:pageId', (req, res) => {
       var html = template.HTML(sanitizedTitle, list,
         `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
         ` <a href="/create">create</a>
-          <a href="/update?id=${sanitizedTitle}">update</a>
+          <a href="/update/${sanitizedTitle}">update</a>
           <form action="delete_process" method="post">
             <input type="hidden" name="id" value="${sanitizedTitle}">
             <input type="submit" value="delete">
@@ -83,6 +83,34 @@ app.post('/create_process', (request, response) => {
       });
 });
 
+app.get('/update/:pageId', (req, res) => {
+  fs.readdir('./data', function(error, filelist){
+    var filteredId = path.parse(req.params.pageId).base;
+    fs.readFile(`data/${filteredId}`, 'utf8', function(err, description){
+      var title = req.params.pageId;
+      var list = template.list(filelist);
+      var html = template.HTML(title, list,
+        `
+        <form action="/update_process" method="post">
+          <input type="hidden" name="id" value="${title}">
+          <p><input type="text" name="title" placeholder="title" value="${title}"></p>
+          <p>
+            <textarea name="description" placeholder="description">${description}</textarea>
+          </p>
+          <p>
+            <input type="submit">
+          </p>
+        </form>
+        `,
+        `<a href="/create">create</a> <a href="/update?id=${title}">update</a>`
+      );
+      res.send(html);
+    });
+  });
+});
+
+
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
@@ -107,30 +135,7 @@ var app = http.createServer(function(request,response){
     } else if(pathname === '/create_process'){
     
     } else if(pathname === '/update'){
-      fs.readdir('./data', function(error, filelist){
-        var filteredId = path.parse(queryData.id).base;
-        fs.readFile(`data/${filteredId}`, 'utf8', function(err, description){
-          var title = queryData.id;
-          var list = template.list(filelist);
-          var html = template.HTML(title, list,
-            `
-            <form action="/update_process" method="post">
-              <input type="hidden" name="id" value="${title}">
-              <p><input type="text" name="title" placeholder="title" value="${title}"></p>
-              <p>
-                <textarea name="description" placeholder="description">${description}</textarea>
-              </p>
-              <p>
-                <input type="submit">
-              </p>
-            </form>
-            `,
-            `<a href="/create">create</a> <a href="/update?id=${title}">update</a>`
-          );
-          response.writeHead(200);
-          response.end(html);
-        });
-      });
+     
     } else if(pathname === '/update_process'){
       var body = '';
       request.on('data', function(data){
