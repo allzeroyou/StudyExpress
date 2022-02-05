@@ -6,6 +6,17 @@ var template = require('./lib/template.js');
 var path = require('path');
 var sanitizeHtml = require('sanitize-html');
 var qs = require('querystring');
+var bodyParser = require('body-parser');
+var compression = require('compression');
+
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(compression());
+app.get('*', function(request, response, next){
+  fs.readdir('./data', function(error, filelist){
+    request.list = filelist;
+    next();
+  }); 
+});
 
 //route, routing
 //app.get('/', (req, res) => res.send('Hello World!'))
@@ -13,7 +24,7 @@ app.get('/', (request, response) => {
   fs.readdir('./data', function(error, filelist){
     var title = 'Welcome';
     var description = 'Hello, Node.js';
-    var list = template.list(filelist);
+    var list = template.list(request.list);
     var html = template.HTML(title, list,
       `<h2>${title}</h2>${description}`,
       `<a href="/create">create</a>`
@@ -22,17 +33,15 @@ app.get('/', (request, response) => {
   });
 })
 
-app.get('/page/:pageId', (req, res) => {
-  
-  fs.readdir('./data', function(error, filelist){
-    var filteredId = path.parse(req.params.pageId).base;
+app.get('/page/:pageId', (request, response) => {
+     var filteredId = path.parse(request.params.pageId).base;
     fs.readFile(`data/${filteredId}`, 'utf8', function(err, description){
-      var title = req.params.pageId;
+      var title = request.params.pageId;
       var sanitizedTitle = sanitizeHtml(title);
       var sanitizedDescription = sanitizeHtml(description, {
         allowedTags:['h1']
       });
-      var list = template.list(filelist);
+      var list = template.list(request.list);
       var html = template.HTML(sanitizedTitle, list,
         `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
         ` <a href="/create">create</a>
@@ -42,15 +51,13 @@ app.get('/page/:pageId', (req, res) => {
             <input type="submit" value="delete">
           </form>`
       );
-      res.send(html);
+      response.send(html);
     });
-  });
 });
 
 app.get('/create', (req, res) => {
-  fs.readdir('./data', function(error, filelist){
     var title = 'WEB - create';
-    var list = template.list(filelist);
+    var list = template.list(request.list);
     var html = template.HTML(title, list, `
       <form action="/create_process" method="post">
         <p><input type="text" name="title" placeholder="title"></p>
@@ -63,30 +70,23 @@ app.get('/create', (req, res) => {
       </form>
     `, '');
     res.send(html);
-  });
+
 })
 
 app.post('/create_process', (request, response) => {
-  var body = '';
-      request.on('data', function(data){
-          body = body + data;
-      });
-      request.on('end', function(){
-          var post = qs.parse(body);
-          var title = post.title;
-          var description = post.description;
-          fs.writeFile(`data/${title}`, description, 'utf8', function(err){
-            response.redirect(`/?id=${title}`);
-          })
-      });
+      var post = request.body;
+      var title = post.title;
+      var description = post.description;
+      fs.writeFile(`data/${title}`, description, 'utf8', function(err){
+        response.redirect(`/?id=${title}`);
+      })
 });
 
 app.get('/update/:pageId', (req, res) => {
-  fs.readdir('./data', function(error, filelist){
     var filteredId = path.parse(req.params.pageId).base;
     fs.readFile(`data/${filteredId}`, 'utf8', function(err, description){
       var title = req.params.pageId;
-      var list = template.list(filelist);
+      var list = template.list(request.list);
       var html = template.HTML(title, list,
         `
         <form action="/update_process" method="post">
@@ -104,76 +104,31 @@ app.get('/update/:pageId', (req, res) => {
       );
       res.send(html);
     });
-  });
 });
 
 app.post('/update_process', (request, response) => {
-  var body = '';
-  request.on('data', function(data){
-      body = body + data;
-  });
-  request.on('end', function(){
-      var post = qs.parse(body);
-      var id = post.id;
-      var title = post.title;
-      var description = post.description;
-      fs.rename(`data/${id}`, `data/${title}`, function(error){
-        fs.writeFile(`data/${title}`, description, 'utf8', function(err){
-          response.writeHead(302, {Location: `/?id=${title}`});
-          response.end();
-        })
-      });
-  });
+var post = request.body;
+var id = post.id;
+var title = post.title;
+var description = post.description;
+fs.rename(`data/${id}`, `data/${title}`, function(error){
+  fs.writeFile(`data/${title}`, description, 'utf8', function(err){
+    response.redirect(`/?id=${title}`);
+    });
+  }); 
 });
 
 app.post('/delete_process', (request, response) => {
-  var body = '';
-  request.on('data', function(data){
-      body = body + data;
-  });
-  request.on('end', function(){
-      var post = qs.parse(body);
-      var id = post.id;
-      var filteredId = path.parse(id).base;
-      fs.unlink(`data/${filteredId}`, function(error){
-        response.redirect('/');
-      })
+var post = request.body;
+var id = post.id;
+var filteredId = path.parse(id).base;
+fs.unlink(`data/${filteredId}`, function(error){
+  response.redirect('/');
   });
 });
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
-})
-
-/*
-var http = require('http');
-var fs = require('fs');
-var url = require('url');
-var qs = require('querystring');
-var template = require('./lib/template.js');
-var path = require('path');
-var sanitizeHtml = require('sanitize-html');
-
-var app = http.createServer(function(request,response){
-    var _url = request.url;
-    var queryData = url.parse(_url, true).query;
-    var pathname = url.parse(_url, true).pathname;
-    if(pathname === '/'){
-      if(queryData.id === undefined){
-      } else {
-    } else if(pathname === '/create'){
-    } else if(pathname === '/create_process'){
-    
-    } else if(pathname === '/update'){
-     
-    } else if(pathname === '/update_process'){
-      
-    } else if(pathname === '/delete_process'){
-     
-    } else {
-      response.writeHead(404);
-      response.end('Not found');
-    }
 });
-app.listen(3000);
-*/
+
+
